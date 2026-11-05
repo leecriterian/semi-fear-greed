@@ -208,6 +208,9 @@ def main():
         if not D[need]:
             sys.exit(f'필수 데이터 {need}를 받지 못해 중단')
 
+    for s in ('SOXX', '005930.KS', '^KS11'):
+        tail = [(d, round(D[s][d]['raw'], 2), D[s][d]['v']) for d in sorted(D[s])[-3:]]
+        log(f'  {s} 마지막 3개 봉(날짜, 종가, 거래량): {tail}')
     # 장중 값은 쓰지 않는다(지수는 종가 기준)
     us_cut, kr_cut = unfinished()
     for s, m in D.items():
