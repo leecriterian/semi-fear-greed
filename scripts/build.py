@@ -16,6 +16,8 @@ UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 W = 252
 US_TZ = ZoneInfo('America/New_York')
 KR_SYMS = {'005930.KS', '000660.KS', '^KS11'}
+# Yahoo가 분할을 과거 가격에 늦게 반영할 때를 대비한 목록(날짜, 비율). 이미 반영됐으면 건드리지 않는다.
+KNOWN_SPLITS = {'SOXX': [('2026-11-05', 3.0)]}
 DEFAULT_HOLDINGS = ['AMD', 'NVDA', 'AVGO', 'MU', 'INTC', 'TXN', 'ADI', 'QCOM', 'NXPI', 'KLAC', 'MPWR', 'AMAT', 'MRVL', 'LRCX', 'TSM',
                     'SKHY', 'TER', 'MCHP', 'ALAB', 'ON', 'CRDO', 'ASML', 'ENTG', 'TSEM', 'MTSI', 'ASX', 'CBRS', 'UMC', 'STM', 'ARM']
 
@@ -43,7 +45,7 @@ def yahoo(sym):
     last = None
     for host in ('query1', 'query2'):
         try:
-            j = json.loads(get(f'https://{host}.finance.yahoo.com/v8/finance/chart/{q}?range=5y&interval=1d', tries=3))
+            j = json.loads(get(f'https://{host}.finance.yahoo.com/v8/finance/chart/{q}?range=5y&interval=1d&events=split', tries=3))
             res = j['chart']['result'][0]
             off = res['meta']['gmtoffset']
             qt = res['indicators']['quote'][0]
@@ -54,10 +56,34 @@ def yahoo(sym):
                     continue
                 d = datetime.datetime.fromtimestamp(t + off, datetime.timezone.utc).date().isoformat()
                 m[d] = {'c': adj[i], 'raw': qt['close'][i], 'v': qt['volume'][i] or 0}
+            splits = list(KNOWN_SPLITS.get(sym, []))
+            for ev in ((res.get('events') or {}).get('splits') or {}).values():
+                d = datetime.datetime.fromtimestamp(ev['date'] + off, datetime.timezone.utc).date().isoformat()
+                splits.append((d, ev['numerator'] / ev['denominator']))
+            fix_splits(sym, m, splits)
             return m
         except Exception as e:
             last = e
     raise RuntimeError(f'{sym}: {last}')
+
+
+def fix_splits(sym, m, splits):
+    """분할 전 가격이 분할 비율만큼 튀어 있으면(= Yahoo 미반영) 분할 전 값을 직접 나눈다."""
+    ds = sorted(m)
+    for d, r in sorted(set(splits)):
+        if r <= 0 or abs(r - 1) < 1e-9:
+            continue
+        before = [x for x in ds if x < d]
+        after = [x for x in ds if x >= d]
+        if not before or not after or m[after[0]]['raw'] <= 0:
+            continue
+        jump = m[before[-1]]['raw'] / m[after[0]]['raw']
+        if jump > 0 and abs(math.log(jump) - math.log(r)) < abs(math.log(jump)):
+            for x in before:
+                m[x]['c'] /= r
+                m[x]['raw'] /= r
+                m[x]['v'] *= r
+            log(f'  {sym}: {d} {r:g}대1 분할이 과거 가격에 반영되지 않아 직접 보정')
 
 
 def soxx_holdings():
@@ -322,6 +348,19 @@ def main():
         'updated': datetime.datetime.now(KST).strftime('%Y-%m-%d %H:%M'),
         'holdings_asof': hold_asof, 'holdings_n': len(HC), 'flow_source': fsrc, 'failed': failed,
     }
+    # Yahoo가 지수의 전날 봉을 늦게 채우는 때가 있어, 이전 결과보다 날짜가 앞서면 그 시장은 이전 값을 유지
+    try:
+        old = json.load(open(os.path.join(OUT, 'data.json'), encoding='utf-8'))
+    except Exception:
+        old = None
+    for mk in ('us', 'kr'):
+        if not old or old.get('asof', {}).get(mk, '') <= data['asof'][mk] or not old.get(mk):
+            continue
+        if len(old[mk][-1]) != len(data[mk][-1]):
+            continue
+        log(f"  {mk}: 새 자료({data['asof'][mk]})가 이전 자료({old['asof'][mk]})보다 앞서 이전 값을 유지")
+        data[mk], data['asof'][mk], data['latest'][mk] = old[mk], old['asof'][mk], old['latest'][mk]
+    us_rows, kr_rows = data['us'], data['kr']
     os.makedirs(OUT, exist_ok=True)
     json.dump(data, open(os.path.join(OUT, 'data.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
     tpl = open(os.path.join(ROOT, 'template.html'), encoding='utf-8').read()
