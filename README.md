@@ -5,6 +5,7 @@
 - 공개 페이지: https://leecriterian.github.io/semi-fear-greed/
 - 갱신: GitHub Actions가 한국시간 월~토 저녁 8시 48분에 자동 실행합니다.
 - 수동 갱신: Actions 탭 → "공포탐욕지수 갱신" → Run workflow
+- 화면: 시장별 지수, 1주·1개월·6개월·1년·2년 전 비교, 최근 2년 그래프(미국은 SOXL 가격, 한국은 바스켓 가격을 겹쳐 표시)
 
 ## 계산 방법
 

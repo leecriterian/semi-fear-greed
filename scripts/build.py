@@ -77,7 +77,7 @@ def soxx_holdings():
 
 def flows_daum(code):
     out = []
-    for p in range(1, 8):
+    for p in range(1, 13):
         j = json.loads(get(f'https://finance.daum.net/api/investor/days?symbolCode=A{code}&page={p}&perPage=100&pagination=true',
                            {'Referer': f'https://finance.daum.net/quotes/A{code}', 'Accept': 'application/json'}))
         data = j.get('data') or []
@@ -89,7 +89,7 @@ def flows_daum(code):
 
 def flows_naver(code):
     out = {}
-    for p in range(1, 40):
+    for p in range(1, 60):
         html = get(f'https://finance.naver.com/item/frgn.naver?code={code}&page={p}',
                    {'Referer': 'https://finance.naver.com/'}).decode('euc-kr', 'replace')
         rows = re.findall(r'<tr[^>]*onMouseOver[^>]*>(.*?)</tr>', html, re.S)
@@ -101,7 +101,7 @@ def flows_naver(code):
             n = lambda s: int(re.sub(r'[^\d\-]', '', s.replace('+', '')) or 0)
             out[cells[0].replace('.', '-')] = (n(cells[6]), n(cells[1]), n(cells[4]))
             got += 1
-        if got == 0 or len(out) >= 720:
+        if got == 0 or len(out) >= 1100:
             break
     return out
 
@@ -253,14 +253,17 @@ def main():
 
     # 최근 1년 행 만들기
     def window(ds):
-        start = (datetime.date.fromisoformat(ds[-1]) - datetime.timedelta(days=367)).isoformat()
+        start = (datetime.date.fromisoformat(ds[-1]) - datetime.timedelta(days=733)).isoformat()
         return [i for i, d in enumerate(ds) if d >= start]
     us_rows = []
     for i in window(ud):
         sc = [a[i] for a in us_sc]
         if None in sc:
             continue
-        us_rows.append([ud[i], round(C[i], 1)] + [rnd(x) for x in sc])
+        lx = D['SOXL'].get(ud[i])
+        if lx is None:
+            continue
+        us_rows.append([ud[i], round(C[i], 1), round(lx['raw'], 2)] + [rnd(x) for x in sc])
     kr_rows = []
     for i in window(kd):
         f = flow.get(kd[i])
@@ -268,7 +271,7 @@ def main():
         if None in sc:
             continue
         kr_rows.append([kd[i], B[i]] + [rnd(x) for x in sc])
-    if len(us_rows) < 200 or len(kr_rows) < 200:
+    if len(us_rows) < 400 or len(kr_rows) < 400:
         sys.exit(f'행 수 부족: 미국 {len(us_rows)}, 한국 {len(kr_rows)}')
     base = kr_rows[0][1]
     for r in kr_rows:
@@ -278,7 +281,7 @@ def main():
         k = sorted(m)
         return m[k[-1]]['raw'], m[k[-2]]['raw']
     ui, ki = len(ud) - 1, len(kd) - 1
-    (x1, x0), (a1, a0), (b1, b0) = last2(D['SOXX']), last2(D['005930.KS']), last2(D['000660.KS'])
+    (x1, x0), (l1, l0), (a1, a0), (b1, b0) = last2(D['SOXX']), last2(D['SOXL']), last2(D['005930.KS']), last2(D['000660.KS'])
     k4 = lambda v: None if v is None else round(v, 4)
     lf = flow.get(kr_rows[-1][0])
     data = {
@@ -286,7 +289,7 @@ def main():
         'keys': {'us': ['mom', 'str', 'brd', 'bet', 'vol', 'rel'], 'kr': ['mom', 'vol', 'rel', 'flow']},
         'us': us_rows, 'kr': kr_rows,
         'latest': {
-            'us': {'mom': k4(mom[ui]), 'str': k4(st[ui]), 'brd': k4(brd[ui]), 'bet': k4(bet[ui]), 'vol': k4(vol[ui]), 'rel': k4(rel[ui]), 'close': x1, 'prev': x0},
+            'us': {'mom': k4(mom[ui]), 'str': k4(st[ui]), 'brd': k4(brd[ui]), 'bet': k4(bet[ui]), 'vol': k4(vol[ui]), 'rel': k4(rel[ui]), 'close': x1, 'prev': x0, 'soxl': l1, 'soxlp': l0},
             'kr': {'mom': k4(km[ki]), 'vol': k4(kv[ki]), 'rel': k4(kr[ki]), 's1': a1, 's1p': a0, 's2': b1, 's2p': b0, 'kospi': round(KP[ki], 2),
                    'flow': None if not lf else round(lf[0] * 100, 2)},
         },
@@ -302,8 +305,8 @@ def main():
             '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>'
             '</head><body>' + tpl.replace('__DATA__', payload) + '</body></html>')
     open(os.path.join(OUT, 'index.html'), 'w', encoding='utf-8').write(page)
-    comp = lambda r: sum(r[2:]) / len(r[2:])
-    log(f"3) 완료: 미국 {us_rows[-1][0]} 지수 {rnd(comp(us_rows[-1]))} / 한국 {kr_rows[-1][0]} 지수 {rnd(comp(kr_rows[-1]))}"
+    comp = lambda r, k: sum(r[k:]) / len(r[k:])
+    log(f"3) 완료: 미국 {us_rows[-1][0]} 지수 {rnd(comp(us_rows[-1], 3))} ({len(us_rows)}행, {us_rows[0][0]}부터) / 한국 {kr_rows[-1][0]} 지수 {rnd(comp(kr_rows[-1], 2))} ({len(kr_rows)}행, {kr_rows[0][0]}부터)"
         f" / 실패 종목 {failed or '없음'}")
 
 
