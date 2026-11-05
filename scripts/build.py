@@ -7,12 +7,15 @@
 점수 = 최근 252거래일 중 오늘 값의 백분위. 변동성은 100에서 뺀다. 지수 = 지표 점수 평균.
 """
 import csv, datetime, io, json, math, os, re, sys, time, urllib.parse, urllib.request
+from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'site')
 KST = datetime.timezone(datetime.timedelta(hours=9))
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
 W = 252
+US_TZ = ZoneInfo('America/New_York')
+KR_SYMS = {'005930.KS', '000660.KS', '^KS11'}
 DEFAULT_HOLDINGS = ['AMD', 'NVDA', 'AVGO', 'MU', 'INTC', 'TXN', 'ADI', 'QCOM', 'NXPI', 'KLAC', 'MPWR', 'AMAT', 'MRVL', 'LRCX', 'TSM',
                     'SKHY', 'TER', 'MCHP', 'ALAB', 'ON', 'CRDO', 'ASML', 'ENTG', 'TSEM', 'MTSI', 'ASX', 'CBRS', 'UMC', 'STM', 'ARM']
 
@@ -118,6 +121,15 @@ def flows():
     raise RuntimeError('외국인 순매수 데이터를 받지 못함')
 
 
+def unfinished(now=None):
+    """장이 아직 끝나지 않은 날짜를 (미국, 한국)으로 돌려준다. 이미 끝났으면 None."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    et, kst = now.astimezone(US_TZ), now.astimezone(KST)
+    us = et.date().isoformat() if et.time() < datetime.time(16, 15) else None
+    kr = kst.date().isoformat() if kst.time() < datetime.time(16, 0) else None
+    return us, kr
+
+
 # ---------- 계산 ----------
 def rnd(x):
     return None if x is None else int(math.floor(x + 0.5))
@@ -196,6 +208,14 @@ def main():
         if not D[need]:
             sys.exit(f'필수 데이터 {need}를 받지 못해 중단')
 
+    # 장중 값은 쓰지 않는다(지수는 종가 기준)
+    us_cut, kr_cut = unfinished()
+    for s, m in D.items():
+        cut = kr_cut if s in KR_SYMS else us_cut
+        if m and cut:
+            m.pop(cut, None)
+    log(f'  장 마감 전이라 제외한 날짜: 미국 {us_cut or "없음"}, 한국 {kr_cut or "없음"}')
+
     # 미국
     ud = sorted(D['SOXX'])
     C, SP = al(D['SOXX'], ud), al(D['SPY'], ud)
@@ -243,6 +263,9 @@ def main():
 
     log('2) 외국인 순매수')
     fa, fb, fsrc = flows()
+    if kr_cut:
+        fa.pop(kr_cut, None)
+        fb.pop(kr_cut, None)
     fd = sorted(d for d in fa if d in fb)
     num = [fa[d][0] * fa[d][1] + fb[d][0] * fb[d][1] for d in fd]
     den = [fa[d][2] * fa[d][1] + fb[d][2] * fb[d][1] for d in fd]

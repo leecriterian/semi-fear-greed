@@ -2,7 +2,7 @@ name: 공포탐욕지수 갱신
 
 on:
   schedule:
-    - cron: '48 11 * * 1-6'   # 한국시간 월~토 20:48 (GitHub 사정으로 몇십 분 늦어질 수 있음)
+    - cron: '13 2 * * 2-6'    # 한국시간 화~토 11:13. GitHub 예약은 늦어지는 일이 잦아 11:30보다 조금 일찍 시작
   workflow_dispatch:
 
 permissions:
