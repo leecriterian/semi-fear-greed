@@ -2,7 +2,7 @@
 
 미국(SOXX와 구성종목)과 한국(삼성전자·SK하이닉스) 반도체 시장의 공포·탐욕을 0~100으로 나타낸 지수입니다.
 
-- 공개 페이지: https://leecriterian.github.io/semi-fear-greed/
+- 공개 페이지: 저장소 Settings → Pages에 표시된 주소
 - 갱신: GitHub Actions가 한국시간 월~토 저녁 8시 48분에 자동 실행합니다.
 - 수동 갱신: Actions 탭 → "공포탐욕지수 갱신" → Run workflow
 - 화면: 시장별 지수, 1주·1개월·6개월·1년·2년 전 비교, 최근 2년 그래프(미국은 SOXL 가격, 한국은 바스켓 가격을 겹쳐 표시)
