@@ -68,22 +68,47 @@ def yahoo(sym):
 
 
 def fix_splits(sym, m, splits):
-    """분할 전 가격이 분할 비율만큼 튀어 있으면(= Yahoo 미반영) 분할 전 값을 직접 나눈다."""
+    """분할 비율만큼 튀는 구간을 찾아 분할 전 단위로 남은 봉만 나눈다.
+
+    Yahoo는 분할 직후 오래된 과거는 이미 나누고 최근 며칠만 그대로 두는 등
+    반만 반영된 상태로 주기도 해서, 분할일에서 거꾸로 훑으며 봉마다 단위를 판정한다.
+    """
     ds = sorted(m)
     for d, r in sorted(set(splits)):
         if r <= 0 or abs(r - 1) < 1e-9:
             continue
-        before = [x for x in ds if x < d]
-        after = [x for x in ds if x >= d]
-        if not before or not after or m[after[0]]['raw'] <= 0:
+        idx = next((i for i, x in enumerate(ds) if x >= d), None)
+        if not idx:
             continue
-        jump = m[before[-1]]['raw'] / m[after[0]]['raw']
-        if jump > 0 and abs(math.log(jump) - math.log(r)) < abs(math.log(jump)):
-            for x in before:
-                m[x]['c'] /= r
-                m[x]['raw'] /= r
-                m[x]['v'] *= r
-            log(f'  {sym}: {d} {r:g}대1 분할이 과거 가격에 반영되지 않아 직접 보정')
+        lr = math.log(r)
+        near = lambda j, target: j > 0 and abs(math.log(j) - target) < abs(lr) / 2
+        pre, state = [], 0          # state 1 = 분할 전 단위로 남아 있음
+        for k in range(idx, 0, -1):
+            a, b = m[ds[k - 1]]['raw'], m[ds[k]]['raw']
+            if idx - k < 60 and b > 0:
+                if state == 0 and near(a / b, lr):
+                    state = 1
+                elif state == 1 and near(a / b, -lr):
+                    state = 0
+            if state:
+                pre.append(ds[k - 1])
+        for x in pre:
+            m[x]['c'] /= r
+            m[x]['raw'] /= r
+            m[x]['v'] *= r
+        if pre:
+            log(f'  {sym}: {d} {r:g}대1 분할이 반영되지 않은 봉 {len(pre)}개를 직접 보정({min(pre)}~{max(pre)})')
+
+
+def check_jumps(D):
+    """핵심 종목의 하루 변화가 비정상이면 게시하지 않고 멈춘다(분할 미반영 등 자료 오류 방지)."""
+    lim = {'SOXL': 1.0, 'SOXS': 1.0}
+    for s in ['SOXX', 'SPY', 'SOXL', 'SOXS', '005930.KS', '000660.KS', '^KS11']:
+        ds = sorted(D[s])[-300:]
+        for a, b in zip(ds, ds[1:]):
+            x, y = D[s][a]['c'], D[s][b]['c']
+            if x > 0 and y > 0 and abs(math.log(y / x)) > lim.get(s, 0.45):
+                sys.exit(f'자료 이상으로 중단: {s} {a}→{b} 하루 {y / x - 1:+.0%}. 분할이 반영되지 않았는지 확인 필요')
 
 
 def soxx_holdings():
@@ -233,6 +258,7 @@ def main():
     for need in ['SOXX', 'SPY', 'SOXL', 'SOXS', '005930.KS', '000660.KS', '^KS11']:
         if not D[need]:
             sys.exit(f'필수 데이터 {need}를 받지 못해 중단')
+    check_jumps(D)
 
     for s in ('SOXX', '005930.KS', '^KS11'):
         tail = [(d, round(D[s][d]['raw'], 2), D[s][d]['v']) for d in sorted(D[s])[-3:]]
