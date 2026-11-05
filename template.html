@@ -415,7 +415,7 @@ footer { color: var(--muted); font-size: var(--fs-12); border-top: 1px solid var
   // 구간 설명·출처
   var zs = document.getElementById('zones'), lo = 0;
   ZONES.forEach(function (zz) { var d = el('div'); var sw = el('span', { class: 'sw' }); sw.style.background = cssv(zz.v); d.appendChild(sw); d.appendChild(el('span', null, lo + '~' + zz.max + ' ' + zz.name)); zs.appendChild(d); lo = zz.max + 1; });
-  document.getElementById('sources').textContent = '데이터: Yahoo Finance(가격·거래량), iShares SOXX 보유종목(' + DATA.holdings_asof + ' 기준 ' + (DATA.holdings_n || 30) + '개), ' + (DATA.flow_source || 'Daum 금융') + '(외국인 순매수). 한국시간 화~토 오전 11시 30분 무렵 자동 갱신(장이 끝난 날까지 반영).';
+  document.getElementById('sources').textContent = '데이터: Yahoo Finance(가격·거래량), iShares SOXX 보유종목(' + DATA.holdings_asof + ' 기준 ' + (DATA.holdings_n || 30) + '개), ' + (DATA.flow_source || 'Daum 금융') + '(외국인 순매수). 한국시간 화~토 아침 7시 무렵(미국 종가), 월~금 저녁 9시 무렵(한국 종가) 자동 갱신.';
 
   // 지표별 점수
   var cur = 'us';
