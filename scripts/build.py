@@ -270,7 +270,7 @@ def main():
         sc = [a[i] for a in kr_sc] + [f[1] if f else None]
         if None in sc:
             continue
-        kr_rows.append([kd[i], B[i]] + [rnd(x) for x in sc])
+        kr_rows.append([kd[i], B[i], D['005930.KS'][kd[i]]['raw'], D['000660.KS'][kd[i]]['raw']] + [rnd(x) for x in sc])
     if len(us_rows) < 400 or len(kr_rows) < 400:
         sys.exit(f'행 수 부족: 미국 {len(us_rows)}, 한국 {len(kr_rows)}')
     base = kr_rows[0][1]
@@ -306,7 +306,7 @@ def main():
             '</head><body>' + tpl.replace('__DATA__', payload) + '</body></html>')
     open(os.path.join(OUT, 'index.html'), 'w', encoding='utf-8').write(page)
     comp = lambda r, k: sum(r[k:]) / len(r[k:])
-    log(f"3) 완료: 미국 {us_rows[-1][0]} 지수 {rnd(comp(us_rows[-1], 3))} ({len(us_rows)}행, {us_rows[0][0]}부터) / 한국 {kr_rows[-1][0]} 지수 {rnd(comp(kr_rows[-1], 2))} ({len(kr_rows)}행, {kr_rows[0][0]}부터)"
+    log(f"3) 완료: 미국 {us_rows[-1][0]} 지수 {rnd(comp(us_rows[-1], 3))} ({len(us_rows)}행, {us_rows[0][0]}부터) / 한국 {kr_rows[-1][0]} 지수 {rnd(comp(kr_rows[-1], 4))} ({len(kr_rows)}행, {kr_rows[0][0]}부터)"
         f" / 실패 종목 {failed or '없음'}")
 
 
