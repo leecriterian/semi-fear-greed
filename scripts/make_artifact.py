@@ -11,4 +11,7 @@ tpl = open(os.path.join(ROOT, 'template.html'), encoding='utf-8').read()
 payload = json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
 out = os.path.join(ROOT, 'artifact.html')
 open(out, 'w', encoding='utf-8').write(tpl.replace('__DATA__', payload))
-print(f"OK {out} · 미국 {data['asof']['us']} / 한국 {data['asof']['kr']} 종가 · GitHub 갱신 {data['updated']}")
+import math
+idx = lambda r, k: int(math.floor(sum(r[k:]) / len(r[k:]) + 0.5))
+print(f"OK {out} · 미국 {idx(data['us'][-1], 3)}점({data['asof']['us']} 종가) / 한국 {idx(data['kr'][-1], 4)}점({data['asof']['kr']} 종가)"
+      f" · GitHub 갱신 {data['updated']} · 표식 \"updated\":\"{data['updated']}\"")
