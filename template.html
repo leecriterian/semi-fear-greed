@@ -320,10 +320,11 @@ footer a { color: inherit; }
 
   // 차트
   var svg = document.getElementById('chart'), box = document.getElementById('chart-box'), tip = document.getElementById('tip');
-  var NS = 'http://www.w3.org/2000/svg', cur = 'us';
+  var NS = 'http://www.w3.org/2000/svg', cur = 'us', lastW = -1;
   function sv(tag, attrs) { var e = document.createElementNS(NS, tag); for (var a in attrs) e.setAttribute(a, attrs[a]); return e; }
   function draw() {
     var s = S[cur], W = Math.max(300, box.clientWidth), H = W < 560 ? 240 : 300;
+    lastW = box.clientWidth;
     var M = { l: 30, r: 52, t: 10, b: 26 }, iw = W - M.l - M.r, ih = H - M.t - M.b;
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('width', W); svg.setAttribute('height', H);
     while (svg.firstChild) svg.removeChild(svg.firstChild);
@@ -400,6 +401,8 @@ footer a { color: inherit; }
   }
   window.addEventListener('hashchange', route);
   var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(draw, 120); });
+  // 처음 그릴 때 화면 폭이 0이거나 나중에 바뀌어도 글자가 커지지 않도록 상자 폭이 바뀌면 다시 그림
+  if (window.ResizeObserver) new ResizeObserver(function () { if (box.clientWidth !== lastW) { clearTimeout(rt); rt = setTimeout(draw, 60); } }).observe(box);
   route();
 })();
 </script>
